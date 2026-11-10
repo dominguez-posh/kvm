@@ -98,9 +98,12 @@ const watchFaceWriteTimeout = 2 * time.Second
 // watchFaceWriteHeartbeat writes the heartbeat line with the same write timeout; silent unless it fails.
 func watchFaceWriteHeartbeat(out *os.File, logger zerolog.Logger) {
 	start := time.Now()
-	_ = out.SetWriteDeadline(start.Add(watchFaceWriteTimeout))
-	if _, err := out.Write([]byte(watchface.HeartbeatLine)); err != nil {
-		logger.Warn().Err(err).Int64("dur_ms", time.Since(start).Milliseconds()).Msg("TAPDBG heartbeat write failed")
+	if err := out.SetWriteDeadline(start.Add(watchFaceWriteTimeout)); err != nil {
+		logger.Warn().Err(err).Msg("TAPDBG heartbeat: SetWriteDeadline not supported")
+	}
+	_, err := out.Write([]byte(watchface.HeartbeatLine))
+	if d := time.Since(start); err != nil || d > 500*time.Millisecond {
+		logger.Warn().Err(err).Int64("dur_ms", d.Milliseconds()).Msg("TAPDBG heartbeat write failed or slow")
 	}
 }
 
@@ -209,7 +212,7 @@ func watchFaceReadLoop() {
 		if err := setRawTTY(f); err != nil {
 			logger.Warn().Err(err).Msg("failed to set tty raw mode")
 		}
-		logger.Info().Msg("TAPDBG tty opened")
+		logger.Warn().Msg("TAPDBG tty opened") // Warn: einmal pro Oeffnen, auch ohne Trace sichtbar
 		done := make(chan struct{})
 		go func(out *os.File) {
 			hb := time.NewTicker(watchface.HeartbeatInterval)
