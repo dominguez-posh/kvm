@@ -35,6 +35,10 @@ extern const char *get_var_claude_5h_pct();
 extern void set_var_claude_5h_pct(const char *value);
 extern const char *get_var_claude_7d_pct();
 extern void set_var_claude_7d_pct(const char *value);
+extern const char *get_var_system_cpu_pct();
+extern void set_var_system_cpu_pct(const char *value);
+extern const char *get_var_system_ram_pct();
+extern void set_var_system_ram_pct(const char *value);
 
 
 #ifdef __cplusplus

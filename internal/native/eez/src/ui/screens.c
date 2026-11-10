@@ -2617,26 +2617,77 @@ void create_screen_clock_screen() {
     lv_obj_set_style_pad_left(obj, 44, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_right(obj, 24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    claude_make_spark(obj, 0, 0);
+    // no spark: the spark is the brand of the Claude face only
 
     // big time: dedicated digit font (Inter Bold, 66px, digits and colon only)
-    claude_make_label(obj, &objects.clock_time, "--:--", &ui_font_font_clock66, 0xffffffff, 66, LV_TEXT_ALIGN_CENTER);
+    claude_make_label(obj, &objects.clock_time, "--:--", &ui_font_font_clock66, 0xffffffff, 52, LV_TEXT_ALIGN_CENTER);
 
     // accent bar
     lv_obj_t *bar = lv_obj_create(obj);
     lv_obj_set_size(bar, 56, 5);
-    lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, 134);
+    lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, 120);
     lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(bar, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(bar, lv_color_hex(CLAUDE_ORANGE), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(bar, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(bar, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    claude_make_label(obj, &objects.clock_date, "", &ui_font_font_book20, 0xffcfcfcf, 152, LV_TEXT_ALIGN_CENTER);
+    claude_make_label(obj, &objects.clock_date, "", &ui_font_font_book20, 0xffcfcfcf, 138, LV_TEXT_ALIGN_CENTER);
     claude_make_tappable(obj);
 }
 
 void tick_screen_clock_screen() {
+}
+
+// ---- System watch face: CPU and RAM (hand-added) ----
+void create_screen_system_screen() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.system_screen = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, LV_PCT(100), LV_PCT(100));
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(obj, 14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_left(obj, 44, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_right(obj, 24, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    // header: spark + title
+    // header: title only, no spark (the spark is the brand of the Claude face only)
+    lv_obj_t *title = lv_label_create(obj);
+    lv_obj_set_pos(title, 0, 1);
+    lv_obj_set_size(title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_font(title, &ui_font_font_bold30, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(title, "System");
+
+    // live indicator: green dot + "live" (data is arriving)
+    lv_obj_t *dot = lv_obj_create(obj);
+    lv_obj_set_size(dot, 10, 10);
+    lv_obj_align(dot, LV_ALIGN_TOP_RIGHT, 0, 12);
+    lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(dot, lv_color_hex(0xff4ade80), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(dot, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(dot, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_t *live = lv_label_create(obj);
+    lv_obj_align(live, LV_ALIGN_TOP_RIGHT, -16, 8);
+    lv_obj_set_style_text_font(live, &ui_font_font_book16, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(live, lv_color_hex(0xff9a9a9a), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(live, "live");
+
+    claude_make_card(obj, 38, "CPU", &objects.system_cpu_value, &objects.system_cpu_bar, &objects.system_cpu_detail);
+    lv_label_set_text(objects.system_cpu_detail, "Takt --");
+    claude_make_card(obj, 130, "RAM", &objects.system_ram_value, &objects.system_ram_bar, &objects.system_ram_detail);
+
+    claude_make_tappable(obj);
+    tick_screen_system_screen();
+}
+
+void tick_screen_system_screen() {
+    claude_apply_bar(objects.system_cpu_bar, objects.system_cpu_value, get_var_system_cpu_pct());
+    claude_apply_bar(objects.system_ram_bar, objects.system_ram_value, get_var_system_ram_pct());
 }
 
 typedef void (*tick_screen_func_t)();
@@ -2655,6 +2706,7 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_switch_dhcp_client_screen,
     tick_screen_claude_usage_screen,
     tick_screen_clock_screen,
+    tick_screen_system_screen,
 };
 void tick_screen(int screen_index) {
     tick_screen_funcs[screen_index]();
@@ -2682,4 +2734,5 @@ void create_screens() {
     create_screen_switch_dhcp_client_screen();
     create_screen_claude_usage_screen();
     create_screen_clock_screen();
+    create_screen_system_screen();
 }

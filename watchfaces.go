@@ -31,6 +31,7 @@ type watchFaceState struct {
 	receivedAt time.Time
 	claude     *claudeusage.Msg
 	clock      *watchface.Clock
+	system     *watchface.System
 }
 
 type watchFaceDef struct {
@@ -41,6 +42,7 @@ type watchFaceDef struct {
 var watchFaces = map[string]watchFaceDef{
 	watchface.FaceClaude: {screen: "claude_usage_screen", apply: applyClaudeFace},
 	watchface.FaceClock:  {screen: "clock_screen", apply: applyClockFace},
+	watchface.FaceSystem: {screen: "system_screen", apply: applySystemFace},
 }
 
 var (
@@ -48,6 +50,9 @@ var (
 	watchFaceLast    *watchFaceState
 	watchFaceCurrent string // screen name currently driven by us, "" if none
 	watchFaceActive  atomic.Bool
+
+	watchFaceTapLock sync.Mutex
+	watchFaceLastTap time.Time // last counted tap (debounce)
 
 	// events for the PC app (e.g. a tap asking for the next face), written to the serial port
 	watchFaceOut = make(chan []byte, 4)
@@ -57,7 +62,21 @@ var (
 // the choice of face, so the tap is passed on as an event line; the app switches and sends the
 // new face. Taps only happen while a face is shown, i.e. while the app is sending, so no stale
 // events pile up.
+//
+// Tap detection lives in Go (OnIndevEvent in native.go, EVENT_CLICKED), not in a LVGL object
+// handler: the screen handler (claude_face_tap) stopped firing on the device although the click
+// was recognised. The handler and the "watchFaceNext" rpc case still exist; the debounce makes a
+// double trigger harmless.
 func watchFaceTapped() {
+	watchFaceTapLock.Lock()
+	ok := watchface.TapAllowed(watchFaceLastTap, time.Now())
+	if ok {
+		watchFaceLastTap = time.Now()
+	}
+	watchFaceTapLock.Unlock()
+	if !ok {
+		return
+	}
 	select {
 	case watchFaceOut <- append([]byte(`{"v":2,"event":"next_face"}`), 10):
 	default: // writer busy: drop
@@ -86,6 +105,16 @@ func applyClaudeFace(s *watchFaceState, now time.Time) {
 func applyClockFace(s *watchFaceState, now time.Time) {
 	nativeInstance.UpdateLabelIfChanged("clock_time", s.clock.TimeText(now))
 	nativeInstance.UpdateLabelIfChanged("clock_date", s.clock.DateText(now))
+}
+
+func applySystemFace(s *watchFaceState, now time.Time) {
+	m := s.system
+	nativeInstance.UISetVar("system_cpu_pct", watchface.SystemPctVar(m.CPU))
+	nativeInstance.UISetVar("system_ram_pct", watchface.SystemPctVar(m.RAM))
+	nativeInstance.UpdateLabelIfChanged("system_cpu_value", watchface.SystemPct(m.CPU))
+	nativeInstance.UpdateLabelIfChanged("system_ram_value", watchface.SystemPct(m.RAM))
+	nativeInstance.UpdateLabelIfChanged("system_cpu_detail", m.CPUText())
+	nativeInstance.UpdateLabelIfChanged("system_ram_detail", m.RAMText())
 }
 
 func setRawTTY(f *os.File) error {
@@ -118,6 +147,10 @@ func handleWatchFaceLine(line []byte, now time.Time) {
 		}
 	case watchface.FaceClock:
 		if s.clock = watchface.ParseClock(env, now); s.clock == nil {
+			return
+		}
+	case watchface.FaceSystem:
+		if s.system = watchface.ParseSystem(line, env, now); s.system == nil {
 			return
 		}
 	default:
