@@ -66,6 +66,7 @@ void ui_init() {
 
 void ui_tick() {
     tick_screen(currentScreen);
+    tick_screen_claude_usage_screen();
 }
 
 #endif

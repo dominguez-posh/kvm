@@ -48,7 +48,7 @@ func updateDisplayUsbState() {
 		nativeInstance.UpdateLabelIfChanged("usb_status_label", "Disconnected")
 		_, _ = nativeInstance.UIObjClearState("usb_status_label", "LV_STATE_CHECKED")
 	}
-	go claudeUsageEvaluate()
+	go watchFaceEvaluate()
 }
 
 func updateDisplay() {
@@ -288,6 +288,11 @@ func tick_displayDim() {
 // tick_displayOff() is called when the off ticker expires, it turns off the display
 // by setting the brightness to zero.
 func tick_displayOff() {
+	// a watch face is shown: keep the display on (it is dimmed by the dim timer)
+	if watchFaceShowing() {
+		return
+	}
+
 	err := setDisplayBrightness(0, "tick_display_off")
 	if err != nil {
 		displayLogger.Warn().Err(err).Msg("failed to turn off display")
@@ -381,7 +386,7 @@ func initDisplay() {
 		updateDisplayUsbState()
 		displayInited = true
 		displayLogger.Info().Msg("display inited")
-		initClaudeUsage()
+		initWatchFaces()
 		startBacklightTickers()
 		requestDisplayUpdate(true, "init_display")
 	}()

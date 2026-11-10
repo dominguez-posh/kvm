@@ -21,3 +21,8 @@ gen book18 Inter-Regular.ttf 17 19 4
 gen book20 Inter-Regular.ttf 19 20 5
 gen book24 Inter-Regular.ttf 23 25 5
 gen bold30 Inter-Bold.ttf 25 31 5
+
+# Digits and colon only (0x30-0x3A) for the clock watch face
+npx --yes lv_font_conv@1.5.2 --bpp 4 --size 66 --no-compress --font inter/Inter-Bold.ttf --range 48-58 --format lvgl \
+  -o ui_font_font_clock66.c
+sed -i -e 's|#include "lvgl/lvgl.h"|#include "lvgl.h"|' ui_font_font_clock66.c

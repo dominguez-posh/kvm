@@ -25,7 +25,7 @@ func TestParseLine(t *testing.T) {
 		t.Errorf("PctVar = %q", got)
 	}
 
-	for _, bad := range []string{"", "garbage", `{"v":2}`, `{"ts":1}`, `{"v":1`} {
+	for _, bad := range []string{"", "garbage", `{"v":3}`, `{"ts":1}`, `{"v":1`} {
 		if ParseLine([]byte(bad), now) != nil {
 			t.Errorf("accepted invalid line %q", bad)
 		}

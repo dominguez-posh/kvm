@@ -32,7 +32,7 @@ type Msg struct {
 // ParseLine validates one protocol line. Returns nil if it is not valid.
 func ParseLine(line []byte, now time.Time) *Msg {
 	var m Msg
-	if err := json.Unmarshal(line, &m); err != nil || m.V != 1 {
+	if err := json.Unmarshal(line, &m); err != nil || (m.V != 1 && m.V != 2) {
 		return nil
 	}
 	m.ReceivedAt = now
