@@ -9,6 +9,7 @@ import (
 	"github.com/jetkvm/kvm/internal/claudeusage"
 	"github.com/jetkvm/kvm/internal/sync"
 	"github.com/jetkvm/kvm/internal/watchface"
+	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
 
@@ -68,19 +69,45 @@ var (
 // was recognised. The handler and the "watchFaceNext" rpc case still exist; the debounce makes a
 // double trigger harmless.
 func watchFaceTapped() {
+	tapLog := displayLogger.With().Str("component", "watchface").Logger()
+	now := time.Now()
 	watchFaceTapLock.Lock()
-	ok := watchface.TapAllowed(watchFaceLastTap, time.Now())
+	gap := now.Sub(watchFaceLastTap)
+	ok := watchface.TapAllowed(watchFaceLastTap, now)
 	if ok {
-		watchFaceLastTap = time.Now()
+		watchFaceLastTap = now
 	}
 	watchFaceTapLock.Unlock()
 	if !ok {
+		tapLog.Info().Int64("gap_ms", gap.Milliseconds()).Msg("TAPDBG tap debounced")
 		return
 	}
+	tapLog.Info().Int64("gap_ms", gap.Milliseconds()).Msg("TAPDBG tap allowed")
 	select {
 	case watchFaceOut <- append([]byte(`{"v":2,"event":"next_face"}`), 10):
+		tapLog.Info().Int("queue_len", len(watchFaceOut)).Msg("TAPDBG tap queued")
 	default: // writer busy: drop
+		tapLog.Warn().Msg("TAPDBG queue full, tap dropped")
 	}
+}
+
+// watchFaceWriteTimeout bounds one serial write: a write that hangs (host side not reading) must
+// not block the writer for good and fill the queue.
+const watchFaceWriteTimeout = 2 * time.Second
+
+func watchFaceWriteEvent(out *os.File, b []byte, logger zerolog.Logger) {
+	start := time.Now()
+	logger.Info().Int("len", len(b)).Msg("TAPDBG write begin")
+	if err := out.SetWriteDeadline(start.Add(watchFaceWriteTimeout)); err != nil {
+		// no poller support: the write may block until the tty is closed (then it fails)
+		logger.Warn().Err(err).Msg("TAPDBG SetWriteDeadline not supported")
+	}
+	n, err := out.Write(b)
+	ev := logger.Info()
+	if err != nil {
+		ev = logger.Warn().Err(err)
+	}
+	ev.Int("bytes", n).Int64("dur_ms", time.Since(start).Milliseconds()).Msg("TAPDBG write done")
 }
 
 // watchFaceShowing reports whether a watch face is on the display (keeps the display on).
@@ -173,12 +200,13 @@ func watchFaceReadLoop() {
 		if err := setRawTTY(f); err != nil {
 			logger.Warn().Err(err).Msg("failed to set tty raw mode")
 		}
+		logger.Info().Msg("TAPDBG tty opened")
 		done := make(chan struct{})
 		go func(out *os.File) {
 			for {
 				select {
 				case b := <-watchFaceOut:
-					_, _ = out.Write(b)
+					watchFaceWriteEvent(out, b, logger)
 				case <-done:
 					return
 				}
