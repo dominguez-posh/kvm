@@ -71,3 +71,25 @@ void set_var_claude_7d_pct(const char *value) {
     strncpy(claude_7d_pct, value, sizeof(claude_7d_pct) - 1);
     claude_7d_pct[sizeof(claude_7d_pct) - 1] = 0;
 }
+
+char system_cpu_pct[8] = { 0 };
+
+const char *get_var_system_cpu_pct() {
+    return system_cpu_pct;
+}
+
+void set_var_system_cpu_pct(const char *value) {
+    strncpy(system_cpu_pct, value, sizeof(system_cpu_pct) - 1);
+    system_cpu_pct[sizeof(system_cpu_pct) - 1] = 0;
+}
+
+char system_ram_pct[8] = { 0 };
+
+const char *get_var_system_ram_pct() {
+    return system_ram_pct;
+}
+
+void set_var_system_ram_pct(const char *value) {
+    strncpy(system_ram_pct, value, sizeof(system_ram_pct) - 1);
+    system_ram_pct[sizeof(system_ram_pct) - 1] = 0;
+}

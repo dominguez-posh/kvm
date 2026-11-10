@@ -31,6 +31,7 @@ type watchFaceState struct {
 	receivedAt time.Time
 	claude     *claudeusage.Msg
 	clock      *watchface.Clock
+	system     *watchface.System
 }
 
 type watchFaceDef struct {
@@ -41,6 +42,7 @@ type watchFaceDef struct {
 var watchFaces = map[string]watchFaceDef{
 	watchface.FaceClaude: {screen: "claude_usage_screen", apply: applyClaudeFace},
 	watchface.FaceClock:  {screen: "clock_screen", apply: applyClockFace},
+	watchface.FaceSystem: {screen: "system_screen", apply: applySystemFace},
 }
 
 var (
@@ -88,6 +90,15 @@ func applyClockFace(s *watchFaceState, now time.Time) {
 	nativeInstance.UpdateLabelIfChanged("clock_date", s.clock.DateText(now))
 }
 
+func applySystemFace(s *watchFaceState, now time.Time) {
+	m := s.system
+	nativeInstance.UISetVar("system_cpu_pct", watchface.SystemPctVar(m.CPU))
+	nativeInstance.UISetVar("system_ram_pct", watchface.SystemPctVar(m.RAM))
+	nativeInstance.UpdateLabelIfChanged("system_cpu_value", watchface.SystemPct(m.CPU))
+	nativeInstance.UpdateLabelIfChanged("system_ram_value", watchface.SystemPct(m.RAM))
+	nativeInstance.UpdateLabelIfChanged("system_ram_detail", m.RAMText())
+}
+
 func setRawTTY(f *os.File) error {
 	fd := int(f.Fd())
 	t, err := unix.IoctlGetTermios(fd, unix.TCGETS)
@@ -118,6 +129,10 @@ func handleWatchFaceLine(line []byte, now time.Time) {
 		}
 	case watchface.FaceClock:
 		if s.clock = watchface.ParseClock(env, now); s.clock == nil {
+			return
+		}
+	case watchface.FaceSystem:
+		if s.system = watchface.ParseSystem(line, env, now); s.system == nil {
 			return
 		}
 	default:
