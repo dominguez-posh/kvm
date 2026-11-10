@@ -95,6 +95,15 @@ func watchFaceTapped() {
 // not block the writer for good and fill the queue.
 const watchFaceWriteTimeout = 2 * time.Second
 
+// watchFaceWriteHeartbeat writes the heartbeat line with the same write timeout; silent unless it fails.
+func watchFaceWriteHeartbeat(out *os.File, logger zerolog.Logger) {
+	start := time.Now()
+	_ = out.SetWriteDeadline(start.Add(watchFaceWriteTimeout))
+	if _, err := out.Write([]byte(watchface.HeartbeatLine)); err != nil {
+		logger.Warn().Err(err).Int64("dur_ms", time.Since(start).Milliseconds()).Msg("TAPDBG heartbeat write failed")
+	}
+}
+
 func watchFaceWriteEvent(out *os.File, b []byte, logger zerolog.Logger) {
 	start := time.Now()
 	logger.Info().Int("len", len(b)).Msg("TAPDBG write begin")
@@ -203,8 +212,14 @@ func watchFaceReadLoop() {
 		logger.Info().Msg("TAPDBG tty opened")
 		done := make(chan struct{})
 		go func(out *os.File) {
+			hb := time.NewTicker(watchface.HeartbeatInterval)
+			defer hb.Stop()
 			for {
 				select {
+				case <-hb.C:
+					if watchface.HeartbeatDue(len(watchFaceOut)) {
+						watchFaceWriteHeartbeat(out, logger)
+					}
 				case b := <-watchFaceOut:
 					watchFaceWriteEvent(out, b, logger)
 				case <-done:

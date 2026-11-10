@@ -26,3 +26,15 @@ func TestTapAllowed(t *testing.T) {
 		}
 	}
 }
+
+func TestHeartbeat(t *testing.T) {
+	if !HeartbeatDue(0) {
+		t.Error("heartbeat should be due with an empty queue")
+	}
+	if HeartbeatDue(1) || HeartbeatDue(4) {
+		t.Error("heartbeat must yield to waiting taps")
+	}
+	if HeartbeatLine != "{\"v\":2,\"event\":\"hb\"}\n" {
+		t.Errorf("unexpected heartbeat line %q", HeartbeatLine)
+	}
+}
