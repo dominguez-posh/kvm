@@ -8,6 +8,7 @@
 #include "vars.h"
 #include "styles.h"
 #include "ui.h"
+#include "claude_spark_math.h"
 
 #include <string.h>
 
@@ -2492,33 +2493,103 @@ static void claude_make_card(lv_obj_t *parent, int y, const char *name,
 
 // Small 12-ray starburst (Claude-style spark): ONE rounded polyline centre->tip->centre->tip...
 // A single lv_line keeps the object count (and LVGL's fixed memory pool use) low.
+//
+// The box is 38x38 at (x - 2, y - 2): centre stays at (x + 17, y + 17) as with the old 34x34 box, but a
+// ray of 16 px plus half the line width (2) no longer touches the edge (19 - 18 = 1 px margin).
+// Breathing animation (docs/DESIGN.md "Animation"): ONE lv_timer (66 ms), integer maths only
+// (claude_spark_math.h), static point arrays, no allocation in the timer. The timer runs only while the
+// Claude screen is active (paused on SCREEN_UNLOAD_START, resumed on SCREEN_LOADED; the callback also
+// pauses itself if it finds the screen inactive).
+#define CLAUDE_SPARK_C 19
+#define CLAUDE_SPARK_PERIOD_TIMER_MS 66
+
+// direction * 1000 for 0,30,...,330 degrees
+static const int claude_spark_dx[12] = { 1000, 866, 500, 0, -500, -866, -1000, -866, -500, 0, 500, 866 };
+static const int claude_spark_dy[12] = { 0, 500, 866, 1000, 866, 500, 0, -500, -866, -1000, -866, -500 };
+static lv_point_precise_t claude_spark_pts[24];
+static lv_obj_t *claude_spark_box;
+static lv_timer_t *claude_spark_timer;
+
+static void claude_spark_set(unsigned t_ms, bool animate) {
+    for (int i = 0; i < 12; i++) {
+        int len10 = CLAUDE_SPARK_LEN_MID10;  // fallback shape: middle length
+        if (animate) {
+            len10 = claude_spark_len10(lv_trigo_sin((int16_t)claude_spark_phase(t_ms, i)));
+        }
+        claude_spark_pts[2 * i].x = CLAUDE_SPARK_C;
+        claude_spark_pts[2 * i].y = CLAUDE_SPARK_C;
+        claude_spark_pts[2 * i + 1].x = CLAUDE_SPARK_C + claude_spark_offset(claude_spark_dx[i], len10);
+        claude_spark_pts[2 * i + 1].y = CLAUDE_SPARK_C + claude_spark_offset(claude_spark_dy[i], len10);
+    }
+}
+
+static void claude_spark_tick(lv_timer_t *t) {
+    if (claude_spark_box == NULL || lv_screen_active() != objects.claude_usage_screen) {
+        lv_timer_pause(t);
+        return;
+    }
+    claude_spark_set(lv_tick_get(), true);
+    // points array is mutated in place; redraw the box (the line object keeps its size)
+    lv_obj_invalidate(claude_spark_box);
+}
+
+static void claude_spark_screen_event(lv_event_t *e) {
+    // only the current Claude screen controls the timer (an older screen from a repeated create_screens must not)
+    if (claude_spark_timer == NULL || lv_event_get_target(e) != objects.claude_usage_screen) return;
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_SCREEN_LOADED) {
+        lv_timer_resume(claude_spark_timer);
+    } else if (code == LV_EVENT_SCREEN_UNLOAD_START) {
+        lv_timer_pause(claude_spark_timer);
+    } else if (code == LV_EVENT_DELETE) {
+        lv_timer_delete(claude_spark_timer);
+        claude_spark_timer = NULL;
+        claude_spark_box = NULL;
+    }
+}
+
 static void claude_make_spark(lv_obj_t *parent, int x, int y) {
-    // direction * 1000 for 0,30,...,330 degrees
-    static const int dx[12] = { 1000, 866, 500, 0, -500, -866, -1000, -866, -500, 0, 500, 866 };
-    static const int dy[12] = { 0, 500, 866, 1000, 866, 500, 0, -500, -866, -1000, -866, -500 };
-    static const int len[12] = { 16, 12, 15, 11, 16, 13, 15, 12, 16, 11, 14, 13 };
-    static lv_point_precise_t pts[24];
+    // a repeated create_screens must not leak the old timer
+    if (claude_spark_timer != NULL) {
+        lv_timer_delete(claude_spark_timer);
+        claude_spark_timer = NULL;
+    }
+    claude_spark_box = NULL;
 
     lv_obj_t *box = lv_obj_create(parent);
-    lv_obj_set_pos(box, x, y);
-    lv_obj_set_size(box, 34, 34);
+    lv_obj_set_pos(box, x - 2, y - 2);
+    lv_obj_set_size(box, 38, 38);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_opa(box, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(box, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_all(box, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    // base shape at the longest ray so the line object covers every later frame
     for (int i = 0; i < 12; i++) {
-        pts[2 * i].x = 17;
-        pts[2 * i].y = 17;
-        pts[2 * i + 1].x = 17 + dx[i] * len[i] / 1000;
-        pts[2 * i + 1].y = 17 + dy[i] * len[i] / 1000;
+        claude_spark_pts[2 * i].x = CLAUDE_SPARK_C;
+        claude_spark_pts[2 * i].y = CLAUDE_SPARK_C;
+        claude_spark_pts[2 * i + 1].x = CLAUDE_SPARK_C + claude_spark_offset(claude_spark_dx[i], CLAUDE_SPARK_LEN_MID10 + CLAUDE_SPARK_LEN_AMP10);
+        claude_spark_pts[2 * i + 1].y = CLAUDE_SPARK_C + claude_spark_offset(claude_spark_dy[i], CLAUDE_SPARK_LEN_MID10 + CLAUDE_SPARK_LEN_AMP10);
     }
     lv_obj_t *rays = lv_line_create(box);
-    lv_line_set_points(rays, pts, 24);
+    lv_line_set_points(rays, claude_spark_pts, 24);
     lv_obj_set_pos(rays, 0, 0);
     lv_obj_set_style_line_width(rays, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_line_color(rays, lv_color_hex(CLAUDE_ORANGE), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_line_rounded(rays, true, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    // now the resting (middle length) shape; the animation starts with the first tick
+    claude_spark_set(0, false);
+    claude_spark_box = box;
+    claude_spark_timer = lv_timer_create(claude_spark_tick, CLAUDE_SPARK_PERIOD_TIMER_MS, NULL);
+    if (claude_spark_timer == NULL) {
+        claude_spark_box = NULL;  // fallback: static spark
+        return;
+    }
+    lv_timer_pause(claude_spark_timer);
+    lv_obj_t *screen = lv_obj_get_screen(box);
+    lv_obj_add_event_cb(screen, claude_spark_screen_event, LV_EVENT_ALL, NULL);
+    if (lv_screen_active() == screen) lv_timer_resume(claude_spark_timer);
 }
 
 // A tap anywhere on a face screen asks the PC app for the next face (via Go -> serial port).

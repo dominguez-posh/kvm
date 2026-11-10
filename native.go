@@ -46,8 +46,12 @@ func initNative(systemVersion *semver.Version, appVersion *semver.Version) {
 			wakeDisplay(false, "indev_event")
 			// Tap on a watch face: detected here, independent of LVGL objects (see watchFaceTapped).
 			// EVENT_SHORT_CLICKED also arrives per tap; only one of the two counts.
-			if event == "EVENT_CLICKED" && watchFaceShowing() {
-				watchFaceTapped()
+			if event == "EVENT_CLICKED" {
+				showing := watchFaceShowing()
+				nativeLogger.Info().Bool("showing", showing).Msg("TAPDBG EVENT_CLICKED")
+				if showing {
+					watchFaceTapped()
+				}
 			}
 		},
 		OnRpcEvent: func(event string) {
