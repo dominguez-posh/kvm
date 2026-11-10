@@ -51,6 +51,9 @@ var (
 	watchFaceCurrent string // screen name currently driven by us, "" if none
 	watchFaceActive  atomic.Bool
 
+	watchFaceTapLock sync.Mutex
+	watchFaceLastTap time.Time // last counted tap (debounce)
+
 	// events for the PC app (e.g. a tap asking for the next face), written to the serial port
 	watchFaceOut = make(chan []byte, 4)
 )
@@ -59,7 +62,21 @@ var (
 // the choice of face, so the tap is passed on as an event line; the app switches and sends the
 // new face. Taps only happen while a face is shown, i.e. while the app is sending, so no stale
 // events pile up.
+//
+// Tap detection lives in Go (OnIndevEvent in native.go, EVENT_CLICKED), not in a LVGL object
+// handler: the screen handler (claude_face_tap) stopped firing on the device although the click
+// was recognised. The handler and the "watchFaceNext" rpc case still exist; the debounce makes a
+// double trigger harmless.
 func watchFaceTapped() {
+	watchFaceTapLock.Lock()
+	ok := watchface.TapAllowed(watchFaceLastTap, time.Now())
+	if ok {
+		watchFaceLastTap = time.Now()
+	}
+	watchFaceTapLock.Unlock()
+	if !ok {
+		return
+	}
 	select {
 	case watchFaceOut <- append([]byte(`{"v":2,"event":"next_face"}`), 10):
 	default: // writer busy: drop
