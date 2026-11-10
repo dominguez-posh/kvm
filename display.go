@@ -48,6 +48,7 @@ func updateDisplayUsbState() {
 		nativeInstance.UpdateLabelIfChanged("usb_status_label", "Disconnected")
 		_, _ = nativeInstance.UIObjClearState("usb_status_label", "LV_STATE_CHECKED")
 	}
+	go claudeUsageEvaluate()
 }
 
 func updateDisplay() {
@@ -380,6 +381,7 @@ func initDisplay() {
 		updateDisplayUsbState()
 		displayInited = true
 		displayLogger.Info().Msg("display inited")
+		initClaudeUsage()
 		startBacklightTickers()
 		requestDisplayUpdate(true, "init_display")
 	}()

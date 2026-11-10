@@ -48,3 +48,26 @@ void set_var_main_screen(const char *value) {
 const char *get_var_main_screen() {
     return main_screen;
 }
+
+
+char claude_5h_pct[8] = { 0 };
+
+const char *get_var_claude_5h_pct() {
+    return claude_5h_pct;
+}
+
+void set_var_claude_5h_pct(const char *value) {
+    strncpy(claude_5h_pct, value, sizeof(claude_5h_pct) - 1);
+    claude_5h_pct[sizeof(claude_5h_pct) - 1] = 0;
+}
+
+char claude_7d_pct[8] = { 0 };
+
+const char *get_var_claude_7d_pct() {
+    return claude_7d_pct;
+}
+
+void set_var_claude_7d_pct(const char *value) {
+    strncpy(claude_7d_pct, value, sizeof(claude_7d_pct) - 1);
+    claude_7d_pct[sizeof(claude_7d_pct) - 1] = 0;
+}

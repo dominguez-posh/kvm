@@ -16,6 +16,10 @@ func effectiveUsbDevices() *usbgadget.Devices {
 	}
 
 	devices := *config.UsbDevices
+	if claudeUsageEnabled() {
+		// the usage display needs the CDC-ACM serial port (/dev/ttyGS0)
+		devices.SerialConsole = true
+	}
 	return &devices
 }
 

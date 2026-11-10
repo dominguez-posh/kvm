@@ -20,6 +20,7 @@ typedef struct _objects_t {
     lv_obj_t *reboot_screen;
     lv_obj_t *rebooting_screen;
     lv_obj_t *switch_dhcp_client_screen;
+    lv_obj_t *claude_usage_screen;
     lv_obj_t *boot_logo;
     lv_obj_t *boot_screen_version;
     lv_obj_t *no_network_header_container;
@@ -111,6 +112,15 @@ typedef struct _objects_t {
     lv_obj_t *dhcp_client_button;
     lv_obj_t *obj2;
     lv_obj_t *dhcp_client_change_label;
+    lv_obj_t *claude_title;
+    lv_obj_t *claude_5h_name;
+    lv_obj_t *claude_5h_value;
+    lv_obj_t *claude_5h_bar;
+    lv_obj_t *claude_5h_reset;
+    lv_obj_t *claude_7d_name;
+    lv_obj_t *claude_7d_value;
+    lv_obj_t *claude_7d_bar;
+    lv_obj_t *claude_7d_reset;
 } objects_t;
 
 extern objects_t objects;
@@ -128,6 +138,7 @@ enum ScreensEnum {
     SCREEN_ID_REBOOT_SCREEN = 10,
     SCREEN_ID_REBOOTING_SCREEN = 11,
     SCREEN_ID_SWITCH_DHCP_CLIENT_SCREEN = 12,
+    SCREEN_ID_CLAUDE_USAGE_SCREEN = 13,
 };
 
 void create_screen_boot_screen();
@@ -165,6 +176,9 @@ void tick_screen_rebooting_screen();
 
 void create_screen_switch_dhcp_client_screen();
 void tick_screen_switch_dhcp_client_screen();
+
+void create_screen_claude_usage_screen();
+void tick_screen_claude_usage_screen();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

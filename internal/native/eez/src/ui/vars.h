@@ -31,6 +31,10 @@ extern const char *get_var_lvgl_version();
 extern void set_var_lvgl_version(const char *value);
 extern const char *get_var_main_screen();
 extern void set_var_main_screen(const char *value);
+extern const char *get_var_claude_5h_pct();
+extern void set_var_claude_5h_pct(const char *value);
+extern const char *get_var_claude_7d_pct();
+extern void set_var_claude_7d_pct(const char *value);
 
 
 #ifdef __cplusplus

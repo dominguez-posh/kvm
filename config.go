@@ -114,6 +114,7 @@ type Config struct {
 	TLSMode              string               `json:"tls_mode"` // options: "self-signed", "user-defined", ""
 	UsbConfig            *usbgadget.Config    `json:"usb_config"`
 	UsbDevices           *usbgadget.Devices   `json:"usb_devices"`
+	ClaudeUsageDisabled  bool                 `json:"claude_usage_disabled"`
 	NetworkConfig        *types.NetworkConfig `json:"network_config"`
 	DefaultLogLevel      string               `json:"default_log_level"`
 	VideoSleepAfterSec   int                  `json:"video_sleep_after_sec"`
