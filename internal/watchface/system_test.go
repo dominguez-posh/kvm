@@ -15,7 +15,7 @@ func parseSys(line string) *System {
 }
 
 func TestParseSystemValid(t *testing.T) {
-	s := parseSys(`{"v":2,"face":"system","ts":5,"cpu_pct":12.4,"ram_pct":40.6,"ram_used_mb":8396.8,"ram_total_mb":32256}`)
+	s := parseSys(`{"v":2,"face":"system","ts":5,"cpu_pct":12.4,"cpu_ghz":3.44,"ram_pct":40.6,"ram_used_mb":8396.8,"ram_total_mb":32256}`)
 	if s == nil || s.CPU == nil || s.RAM == nil {
 		t.Fatalf("got %+v", s)
 	}
@@ -25,8 +25,12 @@ func TestParseSystemValid(t *testing.T) {
 	if SystemPctVar(s.RAM) != "41" {
 		t.Errorf("var = %s", SystemPctVar(s.RAM))
 	}
-	if got := s.RAMText(); got != "8,2 von 31,5 GB" {
+	// free = 32256 - 8396.8 = 23859.2 MB = 23,3 GB; total 31,5 GB
+	if got := s.RAMText(); got != "23,3 von 31,5 GB frei" {
 		t.Errorf("text = %q", got)
+	}
+	if got := s.CPUText(); got != "Takt 3,4 GHz" {
+		t.Errorf("cpu text = %q", got)
 	}
 }
 
@@ -72,9 +76,39 @@ func TestParseSystemRejects(t *testing.T) {
 	}
 }
 
+func TestCPUGHz(t *testing.T) {
+	cases := []struct {
+		json string
+		want string
+	}{
+		{`"cpu_ghz":3.4`, "Takt 3,4 GHz"},
+		{`"cpu_ghz":0.1`, "Takt 0,1 GHz"},
+		{`"cpu_ghz":10`, "Takt 10,0 GHz"},
+		{`"cpu_ghz":0.09`, "Takt --"},
+		{`"cpu_ghz":10.1`, "Takt --"},
+		{`"cpu_ghz":0`, "Takt --"},
+		{`"cpu_ghz":-2`, "Takt --"},
+		{`"cpu_ghz":null`, "Takt --"},
+		{`"cpu_pct":5`, "Takt --"}, // missing
+	}
+	for _, c := range cases {
+		s := parseSys(`{"v":2,"face":"system",` + c.json + `}`)
+		if s == nil {
+			t.Errorf("%s: nil", c.json)
+			continue
+		}
+		if got := s.CPUText(); got != c.want {
+			t.Errorf("%s: %q, want %q", c.json, got, c.want)
+		}
+	}
+	if s := parseSys(`{"v":2,"face":"system","cpu_ghz":"fast"}`); s != nil {
+		t.Error("wrong type must give nil")
+	}
+}
+
 func TestRAMTextAscii(t *testing.T) {
 	s := parseSys(`{"v":2,"face":"system","ram_used_mb":1024,"ram_total_mb":16384}`)
-	if got := s.RAMText(); got != "1,0 von 16,0 GB" || strings.ContainsAny(got, ".ä") {
+	if got := s.RAMText(); got != "15,0 von 16,0 GB frei" || strings.ContainsAny(got, ".ä") {
 		t.Errorf("text = %q", got)
 	}
 }

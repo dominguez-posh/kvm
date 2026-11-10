@@ -96,6 +96,7 @@ func applySystemFace(s *watchFaceState, now time.Time) {
 	nativeInstance.UISetVar("system_ram_pct", watchface.SystemPctVar(m.RAM))
 	nativeInstance.UpdateLabelIfChanged("system_cpu_value", watchface.SystemPct(m.CPU))
 	nativeInstance.UpdateLabelIfChanged("system_ram_value", watchface.SystemPct(m.RAM))
+	nativeInstance.UpdateLabelIfChanged("system_cpu_detail", m.CPUText())
 	nativeInstance.UpdateLabelIfChanged("system_ram_detail", m.RAMText())
 }
 

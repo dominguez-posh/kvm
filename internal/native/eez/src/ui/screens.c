@@ -2678,7 +2678,7 @@ void create_screen_system_screen() {
     lv_label_set_text(live, "live");
 
     claude_make_card(obj, 38, "CPU", &objects.system_cpu_value, &objects.system_cpu_bar, &objects.system_cpu_detail);
-    lv_label_set_text(objects.system_cpu_detail, "Prozessor gesamt");
+    lv_label_set_text(objects.system_cpu_detail, "Takt --");
     claude_make_card(obj, 130, "RAM", &objects.system_ram_value, &objects.system_ram_bar, &objects.system_ram_detail);
 
     claude_make_tappable(obj);
